@@ -2,15 +2,39 @@ using LivePoll.Api.Data;
 using LivePoll.Api.DTOs;
 using LivePoll.Api.Hubs;
 using LivePoll.Api.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKey_ChangeThisInProduction_123456";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "LivePollApi";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=livepoll.db"));
 
 builder.Services.AddSignalR();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtIssuer,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
@@ -24,6 +48,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.EnsureCreatedAsync();
+}
 
 app.UseCors("AllowReactClient");
 
@@ -83,6 +113,7 @@ app.MapPost("/api/polls", async (CreatePollDto dto, AppDbContext db) =>
         Code = code,
         Question = dto.Question,
         Status = PollStatus.Draft,
+        IsAnonymous = dto.IsAnonymous,
         OwnerId = "anonymous-host",
         Options = dto.Options.Select((text, index) => new Option
         {
@@ -115,7 +146,6 @@ app.MapPost("/api/polls/{code}/open", async (string code, AppDbContext db, IHubC
     if (poll.Status == PollStatus.Closed) return Results.BadRequest(new { error = "Cannot reopen a closed poll." });
 
     poll.Status = PollStatus.Open;
-    poll.OpenedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
 
     var updatedPoll = await GetPollResponseAsync(db, code);
@@ -130,7 +160,6 @@ app.MapPost("/api/polls/{code}/close", async (string code, AppDbContext db, IHub
     if (poll is null) return Results.NotFound(new { error = "Poll not found." });
 
     poll.Status = PollStatus.Closed;
-    poll.ClosedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
 
     var updatedPoll = await GetPollResponseAsync(db, code);
@@ -159,7 +188,7 @@ app.MapPost("/api/polls/{code}/votes", async (string code, CastVoteDto dto, AppD
         PollId = poll.Id,
         OptionId = dto.OptionId,
         VoterId = dto.VoterId,
-   VoterName = string.IsNullOrWhiteSpace(dto.VoterName) ? "Anonymous" : dto.VoterName
+        VoterName = string.IsNullOrWhiteSpace(dto.VoterName) ? "Anonymous" : dto.VoterName
     });
 
     try
@@ -188,13 +217,118 @@ app.MapGet("/api/polls/{code}/votes", async (string code, AppDbContext db) =>
 
     var voteRecords = poll.Votes.Select(v => new
     {
-        v.VoterName,
+        VoterName = poll.IsAnonymous ? "Anonymous Participant" : v.VoterName,
         OptionText = v.Option.Text,
         v.VotedAt
     });
 
     return Results.Ok(voteRecords);
 });
+
+app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db) =>
+{
+    if (await db.Users.AnyAsync(u => u.Username == dto.Username))
+    {
+        return Results.BadRequest(new { error = "Username already exists." });
+    }
+
+    var user = new User
+    {
+        Username = dto.Username,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+        Role = string.IsNullOrWhiteSpace(dto.Role) ? "Student" : dto.Role
+    };
+
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "User registered successfully." });
+});
+
+app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
+    if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+    {
+        return Results.BadRequest(new { error = "Invalid username or password." });
+    }
+
+    var tokenHandler = new JwtSecurityTokenHandler();
+    var key = Encoding.UTF8.GetBytes(jwtKey);
+    var tokenDescriptor = new SecurityTokenDescriptor
+    {
+        Subject = new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim("UserId", user.Id.ToString())
+        }),
+        Expires = DateTime.UtcNow.AddDays(7),
+        Issuer = jwtIssuer,
+        Audience = jwtIssuer,
+        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+    };
+
+    var token = tokenHandler.CreateToken(tokenDescriptor);
+    var tokenString = tokenHandler.WriteToken(token);
+
+    return Results.Ok(new AuthResponseDto(tokenString, user.Username, user.Role));
+});
+
+app.MapGet("/api/polls/{code}/analytics", async (string code, AppDbContext db) =>
+{
+    var poll = await db.Polls
+        .Include(p => p.Options)
+        .Include(p => p.Votes)
+        .FirstOrDefaultAsync(p => p.Code.ToUpper() == code.ToUpper());
+
+    if (poll is null) return Results.NotFound(new { error = "Poll not found." });
+
+    int totalVotes = poll.Votes.Count;
+    var optionStats = poll.Options.Select(o =>
+    {
+        int count = poll.Votes.Count(v => v.OptionId == o.Id);
+        double percentage = totalVotes > 0 ? Math.Round((double)count / totalVotes * 100, 2) : 0;
+        return new { o.Id, o.Text, VoteCount = count, Percentage = percentage };
+    }).OrderByDescending(x => x.VoteCount).ToList();
+
+    var leadingOption = optionStats.FirstOrDefault()?.Text ?? "N/A";
+
+    return Results.Ok(new
+    {
+        poll.Code,
+        poll.Question,
+        TotalVotes = totalVotes,
+        LeadingOption = leadingOption,
+        IsAnonymous = poll.IsAnonymous,
+        Options = optionStats
+    });
+});
+
+app.MapGet("/api/polls/{code}/export/csv", async (string code, AppDbContext db) =>
+{
+    var poll = await db.Polls
+        .Include(p => p.Options)
+        .Include(p => p.Votes)
+        .FirstOrDefaultAsync(p => p.Code.ToUpper() == code.ToUpper());
+
+    if (poll is null) return Results.NotFound(new { error = "Poll not found." });
+
+    var csvBuilder = new StringBuilder();
+    csvBuilder.AppendLine("Poll Code,Question,Option Text,Vote Count,Percentage");
+
+    int totalVotes = poll.Votes.Count;
+    foreach (var option in poll.Options)
+    {
+        int count = poll.Votes.Count(v => v.OptionId == option.Id);
+        double percentage = totalVotes > 0 ? Math.Round((double)count / totalVotes * 100, 2) : 0;
+        csvBuilder.AppendLine($"\"{poll.Code}\",\"{poll.Question}\",\"{option.Text}\",{count},{percentage}%");
+    }
+
+    var bytes = Encoding.UTF8.GetBytes(csvBuilder.ToString());
+    return Results.File(bytes, "text/csv", $"{poll.Code}_Results.csv");
+});
+
 
 app.MapHub<PollHub>("/hubs/polls");
 

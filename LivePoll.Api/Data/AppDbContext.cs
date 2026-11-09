@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<Poll> Polls => Set<Poll>();
     public DbSet<Option> Options => Set<Option>();
     public DbSet<Vote> Votes => Set<Vote>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

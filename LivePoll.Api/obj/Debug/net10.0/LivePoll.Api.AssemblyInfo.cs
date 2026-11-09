@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LivePoll.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+203758a6aa6bb7c2a85efabfc39b42d5160456cd")]
 [assembly: System.Reflection.AssemblyProductAttribute("LivePoll.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LivePoll.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

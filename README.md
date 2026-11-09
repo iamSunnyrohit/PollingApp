@@ -14,51 +14,82 @@
   <img src="https://img.shields.io/badge/SignalR-Realtime-512BD4?style=for-the-badge" alt="SignalR" />
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Architecture-Event--Driven-orange?style=flat-square" alt="Event Driven" />
+  <img src="https://img.shields.io/badge/Platform-Full--Stack-blue?style=flat-square" alt="Full Stack" />
+  <img src="https://img.shields.io/badge/Status-In%20Development-yellow?style=flat-square" alt="In Development" />
+</p>
+
 ---
 
 ## ⚡ Overview
 
-**LivePoll** is a real-time polling platform designed for classrooms, workshops, presentations, enterprise surveys, and interactive events.
+**LivePoll** is a real-time polling and audience engagement platform designed for classrooms, workshops, presentations, enterprise surveys, and interactive events.
 
-Hosts can create polls, control voting sessions, and monitor participant responses through a live dashboard. Participants can join a session and submit their votes while results synchronize instantly across connected clients.
+The platform allows hosts and instructors to create interactive polls, manage live voting sessions, and monitor participant responses through a real-time dashboard.
 
-No refreshing. No waiting. Just real-time interaction.
+Participants can join using unique six-character access codes or QR codes and submit their votes instantly.
+
+With ASP.NET Core SignalR, poll updates are synchronized across connected clients without requiring page refreshes.
+
+**No refreshing. No waiting. Just real-time interaction.**
 
 ## ✨ Features
 
-### 👨‍🏫 Host / Instructor
-- Create polls with 2–10 answer options.
-- Generate unique poll access codes.
-- Control poll lifecycle: Draft → Open → Closed.
-- Open and close voting sessions.
-- Monitor live voting statistics.
-- View participant voting activity.
-- Access a voter audit roster with timestamps.
-- Track poll status and submission history.
+### 👨‍🏫 Host / Instructor Dashboard
 
-### 🙋 Student / Participant
-- Join polls using a unique access code.
-- View available poll questions and options.
-- Submit votes instantly.
-- Receive real-time poll updates.
-- Get duplicate-vote protection.
-- View updated results when available.
+- Create polls with 2–10 answer options.
+- Generate unique six-character poll access codes.
+- Generate QR codes for instant room joining.
+- Enable anonymous polling mode.
+- Control poll lifecycle: `Draft → Open → Closed`.
+- Monitor live voting statistics.
+- Visualize vote distributions and percentages.
+- Access participant voting activity and timestamps.
+- Export poll analytics and voting summaries as CSV.
+- Manage poll sessions from a centralized dashboard.
+
+### 🙋 Student / Participant Experience
+
+- Join polls using access codes.
+- Join sessions through QR code links.
+- View available poll questions and answer options.
+- Submit votes with client-side and server-side validation.
+- Receive instant voting status updates.
+- Benefit from duplicate-vote protection.
+- Participate in anonymous polling sessions.
 
 ### ⚡ Real-Time Infrastructure
+
 - ASP.NET Core SignalR integration.
-- WebSocket-based real-time communication when supported.
-- SignalR groups for poll-specific broadcasting.
+- WebSocket communication with supported transport fallback.
+- Poll-specific SignalR group management.
 - Instant vote tally synchronization.
 - Live poll lifecycle notifications.
-- Automatic reconnection support through the SignalR client configuration.
+- Automatic reconnection support.
+- Event-driven client updates.
 
-### 🔐 Data Integrity
-- SQLite persistence.
-- Entity Framework Core.
+### 🔐 Authentication & Data Integrity
+
+- JWT Bearer authentication.
+- User registration and login.
+- BCrypt password hashing.
+- Host and participant role profiles.
+- SQLite database persistence.
+- Entity Framework Core ORM.
 - Composite unique index on `(PollId, VoterId)`.
 - Database-enforced duplicate vote prevention.
-- HTTP `409 Conflict` for duplicate submissions.
-- Persistent poll and session state.
+- HTTP `409 Conflict` handling.
+- Poll-specific access control.
+
+### 📊 Analytics & Reporting
+
+- Live vote counts.
+- Percentage distribution for each option.
+- Leading option identification.
+- Participant submission timestamps.
+- Host voting audit roster.
+- CSV report downloads.
 
 ---
 
@@ -66,67 +97,233 @@ No refreshing. No waiting. Just real-time interaction.
 
 | Layer | Technology |
 |---|---|
-| Backend | ASP.NET Core Web API (.NET 10) |
-| Language | C# |
+| Backend Framework | ASP.NET Core Web API (.NET 10) |
+| Backend Language | C# |
 | ORM | Entity Framework Core |
 | Database | SQLite |
-| Real-time | ASP.NET Core SignalR |
+| Real-Time Engine | ASP.NET Core SignalR |
+| Authentication | JWT Bearer |
+| Password Security | BCrypt |
 | Frontend | React 19 |
 | Build Tool | Vite |
 | Frontend Language | TypeScript |
-| Real-time Client | @microsoft/signalr |
-| Authentication | Host / Participant role profiles |
+| Real-Time Client | @microsoft/signalr |
+| QR Code Generation | qrcode.react |
 | Client Persistence | localStorage |
+| Analytics Export | CSV |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
+
+LivePoll follows a client-server architecture with real-time event broadcasting.
+
+### High-Level Architecture
+
+```mermaid
+flowchart TB
+    subgraph CLIENT["Frontend — React 19"]
+        H["Host Dashboard"]
+        P["Participant Interface"]
+        QR["QR Code Generator"]
+        A["Analytics Dashboard"]
+    end
+
+    subgraph BACKEND["Backend — ASP.NET Core"]
+        API["REST API"]
+        AUTH["JWT Authentication"]
+        HUB["SignalR Poll Hub"]
+        VOTE["Vote Validation"]
+        ANALYTICS["Analytics & CSV Export"]
+    end
+
+    subgraph STORAGE["Persistence"]
+        EF["Entity Framework Core"]
+        DB[("SQLite Database")]
+    end
+
+    H --> API
+    P --> API
+    QR --> P
+    A --> API
+
+    API --> AUTH
+    API --> VOTE
+    API --> ANALYTICS
+
+    H <-->|"Real-time events"| HUB
+    P <-->|"Real-time events"| HUB
+
+    API --> EF
+    HUB --> EF
+    VOTE --> EF
+    ANALYTICS --> EF
+
+    EF --> DB
+```
+
+### 🔄 Poll Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Open: Host opens poll
+    Open --> Closed: Host closes poll
+    Closed --> [*]
+```
+
+### How Voting Works
+
+1. **Poll Creation:** The host creates a poll through the dashboard.
+2. **Database Persistence:** Poll information is saved through Entity Framework Core.
+3. **Room Generation:** The application generates a unique six-character access code and QR joining link.
+4. **Session Activation:** The host opens the poll.
+5. **Real-Time Notification:** SignalR broadcasts the session state to the relevant poll group.
+6. **Participant Voting:** Participants submit their selected options.
+7. **Vote Validation:** The backend validates the poll state, option, and voter identity.
+8. **Duplicate Protection:** A database unique constraint prevents multiple votes from the same voter in one poll.
+9. **Live Broadcasting:** Updated voting results are broadcast to connected clients.
+10. **Analytics:** The host can inspect results and download CSV reports.
+
+---
+
+## 🔐 Authentication & Security
+
+LivePoll uses JWT Bearer authentication to manage authenticated users and protect restricted API operations.
+
+### Authentication Flow
 
 ```mermaid
 flowchart TD
-    A["Host / Instructor"] --> C["React 19 Frontend"]
-    B["Student / Participant"] --> C
-
-    C --> D["ASP.NET Core Web API"]
-
-    C <-->|"SignalR Connection"| E["Poll Hub"]
-
-    D --> F["Entity Framework Core"]
-    E --> F
-
-    F --> G[("SQLite Database")]
-
-    D --> H["Poll Management"]
-    D --> I["Vote Validation"]
-    E --> J["Real-Time Broadcasting"]
-
-    H --> F
-    I --> F
-    J --> C
+    A["User Registration / Login"] --> B["ASP.NET Core API"]
+    B --> C["BCrypt Password Verification"]
+    C --> D["JWT Token Generation"]
+    D --> E["Frontend Stores Session"]
+    E --> F["Authenticated API Request"]
+    F --> G["JWT Validation"]
+    G --> H["Authorized Resource"]
 ```
 
-### 🔄 How It Works
+### Security Considerations
 
-1. **Poll Creation:** The host creates a poll through the React dashboard.
-2. **Persistence:** The ASP.NET Core API stores poll information in SQLite through Entity Framework Core.
-3. **Session Activation:** The host opens the poll, triggering a SignalR notification.
-4. **Participant Voting:** Participants submit their votes using the poll access code.
-5. **Validation:** The backend checks whether the participant has already voted.
-6. **Database Integrity:** A composite unique constraint prevents duplicate votes.
-7. **Broadcasting:** SignalR broadcasts updated results to clients connected to the relevant poll group.
-8. **Audit Logging:** The host can retrieve the voting roster and submission timestamps.
+- Passwords should never be stored as plaintext.
+- JWT signing keys should be stored in environment variables or secure configuration.
+- Host-only operations must enforce server-side authorization.
+- Anonymous polling must hide participant identity from public responses.
+- Internal voter identifiers should remain available for duplicate-vote enforcement.
+- Poll access codes should be generated with sufficient randomness.
+- SignalR connections should enforce authentication and poll-specific authorization where appropriate.
+
+---
+
+## 🛡️ Duplicate Vote Protection
+
+One of LivePoll's core integrity features is database-level duplicate vote prevention.
+
+The application uses a composite unique index:
+
+```csharp
+modelBuilder.Entity<Vote>()
+    .HasIndex(v => new { v.PollId, v.VoterId })
+    .IsUnique();
+```
+
+This ensures that one voter identity cannot submit multiple votes for the same poll.
+
+### Why Database-Level Protection?
+
+- Prevents duplicate submissions.
+- Protects against concurrent requests.
+- Reduces dependence on frontend validation.
+- Maintains voting integrity.
+- Provides a reliable enforcement mechanism.
+
+Duplicate submissions should return:
+
+```http
+409 Conflict
+```
+
+---
+
+## 📡 Real-Time Communication
+
+SignalR hub endpoint:
+
+```text
+/hubs/polls
+```
+
+LivePoll uses SignalR groups to organize participants by poll session.
+
+### Suggested Event Structure
+
+| Event | Responsibility |
+|---|---|
+| `PollOpened` | Notify participants that voting has started |
+| `PollClosed` | Notify participants that voting has ended |
+| `VoteUpdated` | Broadcast updated vote totals |
+| `PollUpdated` | Synchronize poll changes |
+
+### Example SignalR Client
+
+```typescript
+import {
+  HubConnectionBuilder,
+  HubConnectionState,
+} from "@microsoft/signalr";
+
+const connection = new HubConnectionBuilder()
+  .withUrl("http://localhost:5255/hubs/polls")
+  .withAutomaticReconnect()
+  .build();
+
+await connection.start();
+
+if (connection.state === HubConnectionState.Connected) {
+  console.log("Connected to LivePoll SignalR Hub");
+}
+```
+
+*Adapt the URL, authentication configuration, and event names to the actual backend implementation.*
+
+---
+
+## 📊 Analytics & CSV Export
+
+LivePoll provides voting analytics to help hosts understand participant responses.
+
+### Analytics Capabilities
+
+- Total number of votes.
+- Individual option vote counts.
+- Percentage distribution.
+- Leading answer identification.
+- Participant voting activity.
+- CSV summary exports.
+
+### Example CSV Output
+
+```csv
+PollCode,Question,Option,Votes,Percentage
+ABC123,Preferred Language,Python,15,50
+ABC123,Preferred Language,JavaScript,8,26.67
+ABC123,Preferred Language,CSharp,7,23.33
+```
+
+The export should respect anonymous polling settings and avoid exposing personally identifying participant information in anonymous reports.
 
 ---
 
 ## 🎨 Design System
 
-LivePoll uses a dark teal and terracotta color palette to create a modern, focused dashboard experience.
+LivePoll uses a custom dark teal and terracotta palette.
 
 | Color | Hex | Usage |
 |---|---|---|
 | Obsidian Blue-Black | `#0a0f14` | Application background |
 | Dark Emerald | `#0f3d3e` | Cards and panels |
-| Deep Teal | `#2e6f73` | Borders and secondary elements |
+| Deep Teal | `#2e6f73` | Borders and dividers |
 | Seafoam Teal | `#7FB3B8` | Progress bars and success states |
 | Soft Cream | `#EADCC8` | Typography |
 | Terracotta | `#c6601f` | Primary actions and active states |
@@ -139,7 +336,9 @@ LivePoll uses a dark teal and terracotta color palette to create a modern, focus
 PollingApp/
 │
 ├── LivePoll.Api/
+│   │
 │   ├── Controllers/
+│   │   ├── AuthController.cs
 │   │   └── PollsController.cs
 │   │
 │   ├── Hubs/
@@ -148,37 +347,46 @@ PollingApp/
 │   ├── Models/
 │   │   ├── Poll.cs
 │   │   ├── PollOption.cs
-│   │   └── Vote.cs
+│   │   ├── Vote.cs
+│   │   └── User.cs
+│   │
+│   ├── DTOs/
+│   │   └── PollDtos.cs
 │   │
 │   ├── Data/
-│   │   └── ApplicationDbContext.cs
+│   │   └── AppDbContext.cs
 │   │
 │   ├── Services/
-│   │
-│   ├── Migrations/
 │   │
 │   ├── Program.cs
 │   └── appsettings.json
 │
 ├── LivePoll.Client/
+│   │
 │   ├── public/
 │   │
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
 │   │   ├── services/
+│   │   │   └── api.ts
 │   │   ├── hooks/
+│   │   ├── context/
 │   │   ├── types/
+│   │   │   └── poll.ts
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   │
 │   ├── package.json
 │   └── vite.config.ts
 │
+├── docs/
+│   └── screenshots/
+│
 └── README.md
 ```
 
-*Folder names are illustrative; adjust them to match the actual repository.*
+*The structure is illustrative. Update it to reflect your actual repository.*
 
 ---
 
@@ -186,10 +394,10 @@ PollingApp/
 
 ### Prerequisites
 
-Make sure you have installed:
+Install the following tools:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Node.js](https://nodejs.org/) (compatible with your Vite version)
+- [Node.js](https://nodejs.org/)
 - npm
 - Git
 
@@ -201,7 +409,23 @@ git clone https://github.com/YOUR_USERNAME/PollingApp.git
 cd PollingApp
 ```
 
-### 2. Start the Backend
+### 2. Configure Backend Environment
+
+Configure your JWT signing key and other application settings using environment variables or .NET user secrets.
+
+For local development, you can use:
+
+```bash
+cd LivePoll.Api
+
+dotnet user-secrets init
+
+dotnet user-secrets set "Jwt:Key" "YOUR_LONG_RANDOM_DEVELOPMENT_SECRET"
+```
+
+Do not commit real secrets to GitHub.
+
+### 3. Start the Backend API
 
 ```bash
 cd LivePoll.Api
@@ -211,15 +435,15 @@ dotnet restore
 dotnet run
 ```
 
-Backend API:
+Backend:
 
 ```text
 http://localhost:5255
 ```
 
-### 3. Start the Frontend
+### 4. Start the Frontend Client
 
-Open another terminal:
+Open a second terminal:
 
 ```bash
 cd PollingApp/LivePoll.Client
@@ -235,147 +459,63 @@ Frontend:
 http://localhost:5173
 ```
 
-### 4. Connect the Frontend and Backend
+### 5. Configure Frontend API URL
 
-Ensure your frontend API configuration points to the backend:
+Ensure your frontend API service uses the backend address:
 
 ```typescript
 const API_BASE_URL = "http://localhost:5255";
 ```
 
-Configure the SignalR hub URL:
+For a Vite environment configuration, you can use:
 
-```typescript
-const connection = new HubConnectionBuilder()
-  .withUrl(`${API_BASE_URL}/hubs/polls`)
-  .withAutomaticReconnect()
-  .build();
+```env
+VITE_API_BASE_URL=http://localhost:5255
 ```
 
-Make sure backend CORS policies allow the frontend origin.
+Then access it through:
+
+```typescript
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+```
+
+Ensure the backend CORS policy allows the frontend origin.
 
 ---
 
 ## 📡 API Documentation
 
+### Authentication
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Register a user |
+| POST | `/api/auth/login` | Authenticate and issue JWT |
+
+### Poll Management
+
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/polls` | Create a new poll |
-| GET | `/api/polls/{code}` | Retrieve poll details and vote tallies |
-| POST | `/api/polls/{code}/open` | Open a poll |
-| POST | `/api/polls/{code}/close` | Close a poll |
+| GET | `/api/polls/{code}` | Retrieve poll metadata and live tallies |
+| POST | `/api/polls/{code}/open` | Open voting session |
+| POST | `/api/polls/{code}/close` | Close voting session |
+
+### Voting
+
+| Method | Endpoint | Description |
+|---|---|---|
 | POST | `/api/polls/{code}/votes` | Submit a vote |
-| GET | `/api/polls/{code}/votes` | Retrieve the host voting roster |
+| GET | `/api/polls/{code}/votes` | Retrieve host voting roster |
 
-### Example: Create a Poll
+### Analytics
 
-```http
-POST /api/polls
-Content-Type: application/json
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/polls/{code}/analytics` | Retrieve poll analytics |
+| GET | `/api/polls/{code}/export/csv` | Download CSV report |
 
-```json
-{
-  "question": "Which programming language do you prefer?",
-  "options": [
-    "Python",
-    "JavaScript",
-    "C#",
-    "Java"
-  ]
-}
-```
-
-### Example: Submit a Vote
-
-```http
-POST /api/polls/ABC123/votes
-Content-Type: application/json
-```
-
-```json
-{
-  "voterId": "participant-001",
-  "optionId": 2
-}
-```
-
-*Request property names and response schemas should be adjusted to match the actual API DTOs.*
-
-### HTTP Response Codes
-
-| Status | Meaning |
-|---|---|
-| 200 | Request successful |
-| 201 | Resource created, if returned by the endpoint |
-| 400 | Invalid request |
-| 404 | Poll or option not found |
-| 409 | Duplicate vote |
-| 500 | Internal server error |
-
----
-
-## 📡 SignalR Events
-
-SignalR hub endpoint:
-
-```text
-/hubs/polls
-```
-
-Suggested event responsibilities:
-
-| Event | Purpose |
-|---|---|
-| PollOpened | Notify participants that voting has started |
-| PollClosed | Notify participants that voting has ended |
-| VoteUpdated | Broadcast updated vote totals |
-| PollUpdated | Synchronize poll state changes |
-
-SignalR groups allow clients to subscribe to updates for a particular poll rather than receiving unrelated session notifications.
-
----
-
-## 🛡️ Duplicate Vote Protection
-
-One of LivePoll's important integrity features is database-level duplicate vote prevention.
-
-The database uses a composite unique index:
-
-```csharp
-modelBuilder.Entity<Vote>()
-    .HasIndex(v => new { v.PollId, v.VoterId })
-    .IsUnique();
-```
-
-This ensures that the same voter identity cannot submit multiple votes for the same poll.
-
-The backend should also handle unique-constraint violations and return:
-
-```http
-409 Conflict
-```
-
-**Why this matters:**
-
-- Prevents duplicate submissions.
-- Protects against concurrent requests.
-- Keeps vote counts consistent.
-- Enforces integrity at the database level.
-
----
-
-## 📸 Screenshots
-
-Add screenshots of your actual application here.
-
-| Dashboard | Poll Creation |
-|---|---|
-| `![Dashboard](docs/screenshots/dashboard.png)` | `![Poll Creation](docs/screenshots/create-poll.png)` |
-
-| Participant Voting | Live Results |
-|---|---|
-| `![Voting](docs/screenshots/voting.png)` | `![Results](docs/screenshots/results.png)` |
+*Confirm all endpoint paths and authorization requirements against your implemented controllers.*
 
 ---
 
@@ -387,62 +527,101 @@ Run backend tests:
 dotnet test
 ```
 
-Run frontend checks (depending on configured scripts):
+Run frontend checks:
 
 ```bash
 npm run lint
+
 npm run build
 ```
 
-Important scenarios to test:
+### Important Test Scenarios
 
-- Poll creation with valid options.
-- Poll creation with fewer than 2 or more than 10 options.
-- Opening and closing polls.
-- Voting while a poll is closed.
-- Duplicate vote attempts.
-- Concurrent vote submissions.
-- SignalR synchronization between multiple clients.
-- Persistence after backend restart.
+- [ ] User registration and login.
+- [ ] Invalid password handling.
+- [ ] JWT authorization.
+- [ ] Poll creation with valid options.
+- [ ] Poll creation with fewer than 2 or more than 10 options.
+- [ ] Unique six-character room code generation.
+- [ ] QR code joining.
+- [ ] Opening and closing voting sessions.
+- [ ] Voting while a poll is closed.
+- [ ] Duplicate vote prevention.
+- [ ] Concurrent voting requests.
+- [ ] Anonymous polling privacy.
+- [ ] SignalR synchronization across clients.
+- [ ] Analytics calculation accuracy.
+- [ ] CSV export correctness.
+- [ ] Persistence after backend restart.
 
 ---
 
-## 🔮 Future Improvements
+## 📸 Application Screenshots
 
-- [ ] JWT-based authentication.
-- [ ] Persistent user accounts and role management.
-- [ ] QR-code poll joining.
-- [ ] Anonymous polling mode.
-- [ ] Advanced analytics and visualizations.
-- [ ] Export voting results to CSV/PDF.
+Add actual screenshots of your application in `docs/screenshots/`.
+
+### Host Dashboard
+
+![Host Dashboard](docs/screenshots/dashboard.png)
+
+### Poll Creation
+
+![Poll Creation](docs/screenshots/create-poll.png)
+
+### Participant Voting
+
+![Participant Voting](docs/screenshots/voting.png)
+
+### Live Analytics
+
+![Live Analytics](docs/screenshots/analytics.png)
+
+### QR Code Room Joining
+
+![QR Code Joining](docs/screenshots/qr-join.png)
+
+---
+
+## 🔮 Future Roadmap
+
+- [ ] Email verification.
+- [ ] Password reset functionality.
+- [ ] Advanced role and permission management.
+- [ ] Scheduled polling sessions.
 - [ ] Multiple active polls per host.
-- [ ] Scheduled polls.
+- [ ] PDF analytics reports.
+- [ ] Advanced data visualizations.
+- [ ] Poll templates.
 - [ ] Docker containerization.
-- [ ] Unit and integration test coverage.
-- [ ] Production deployment with HTTPS.
+- [ ] Automated integration testing.
+- [ ] Cloud deployment.
+- [ ] Production monitoring and logging.
 
 ---
 
-## 💡 Engineering Concepts Demonstrated
+## 🧠 Engineering Concepts Demonstrated
 
-LivePoll is more than a CRUD application. It demonstrates several practical software engineering concepts:
+LivePoll demonstrates practical software engineering concepts:
 
-- RESTful API design.
-- Real-time event-driven architecture.
-- WebSocket communication through SignalR.
-- Database normalization and relational modeling.
-- Composite unique indexes.
-- Concurrency and data integrity.
-- Client-server synchronization.
-- State management.
-- Role-based application workflows.
-- Full-stack development with .NET and React.
+- RESTful API architecture.
+- Real-time event-driven communication.
+- WebSocket communication and transport negotiation.
+- JWT authentication and authorization.
+- Password hashing.
+- Relational database design.
+- Entity Framework Core.
+- Composite unique constraints.
+- Concurrent request handling.
+- Data integrity and validation.
+- Real-time frontend synchronization.
+- CSV data generation and export.
+- Full-stack application development.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, suggestions, and feature improvements are welcome!
+Contributions, suggestions, and improvements are welcome!
 
 1. Fork the repository.
 2. Create a feature branch.
@@ -464,7 +643,7 @@ git push origin feature/your-feature
 
 ## 📜 License
 
-This project is available under the MIT License. Add a `LICENSE` file to the repository if you intend to distribute it under that license.
+This project is intended to use the MIT License. Add a `LICENSE` file containing the appropriate MIT license text before publishing it under that license.
 
 ---
 

@@ -145,3 +145,14 @@
 /Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/runtimes/win-arm64/native/e_sqlite3.dll
 /Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/runtimes/win-x64/native/e_sqlite3.dll
 /Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/runtimes/win-x86/native/e_sqlite3.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/obj/Debug/net10.0/LivePoll.Api.sourcelink.json
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/BCrypt-Net-Next.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.Bcl.Cryptography.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.Abstractions.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.JsonWebTokens.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.Logging.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.Protocols.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/Microsoft.IdentityModel.Tokens.dll
+/Users/sunnyrohit/Desktop/Main/Mern-DotNet/PollingApp/LivePoll.Api/bin/Debug/net10.0/System.IdentityModel.Tokens.Jwt.dll

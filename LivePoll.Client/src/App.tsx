@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as signalR from '@microsoft/signalr';
+import { QRCodeSVG } from 'qrcode.react';
 import type { PollResponse, VoteRecord } from './types/poll';
 import { createPoll, getPoll, openPoll, closePoll, castVote, getPollVotes } from './services/api';
 import './App.css';
@@ -7,7 +8,6 @@ import './App.css';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5255';
 
 export default function App() {
-  // User Profile & Login State
   const [userProfile, setUserProfile] = useState<{ name: string; role: 'student' | 'host' } | null>(() => {
     const saved = localStorage.getItem('live_poll_profile');
     return saved ? JSON.parse(saved) : null;
@@ -32,6 +32,7 @@ export default function App() {
   // Create Form State
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   
   const [hasVoted, setHasVoted] = useState(false);
   const [error, setError] = useState('');
@@ -52,7 +53,6 @@ export default function App() {
     setPoll(null);
   };
 
-  // SignalR Connection Effect
   useEffect(() => {
     if (!poll) return;
 
@@ -94,7 +94,7 @@ export default function App() {
     try {
       setError('');
       const filteredOptions = options.filter(o => o.trim() !== '');
-      const newPoll = await createPoll(question, filteredOptions);
+      const newPoll = await createPoll(question, filteredOptions, isAnonymous);
       setPoll(newPoll);
       setView('poll');
       if (userProfile?.role === 'host') {
@@ -146,7 +146,6 @@ export default function App() {
     }
   };
 
-  // Login Screen
   if (!userProfile) {
     return (
       <div className="container" style={{ maxWidth: '450px', marginTop: '80px' }}>
@@ -182,7 +181,6 @@ export default function App() {
     );
   }
 
-  // Terminated / Sign Out View
   if (view === 'terminated') {
     return (
       <div className="container" style={{ maxWidth: '600px', textAlign: 'center', marginTop: '60px' }}>
@@ -216,7 +214,6 @@ export default function App() {
       {view === 'dashboard' && (
         <div>
           <div className="dashboard-grid">
-            {/* Left Box: Join Session */}
             <div className="card">
               <h3>Join Live Poll</h3>
               <p style={{ fontSize: '14px', color: '#a0a0a0' }}>Enter 6-character room passkey to participate in live tallying.</p>
@@ -234,7 +231,6 @@ export default function App() {
               </form>
             </div>
 
-            {/* Right Box: Host Hub (If Host) */}
             {userProfile.role === 'host' ? (
               <div className="card" style={{ background: 'linear-gradient(135deg, #0f3d3e 0%, #1a4a4b 100%)' }}>
                 <h3>Host Management Hub</h3>
@@ -268,6 +264,19 @@ export default function App() {
                 className="input-text"
               />
             </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={isAnonymous}
+                  onChange={e => setIsAnonymous(e.target.checked)}
+                  style={{ width: '18px', height: '18px', accentColor: 'var(--accent-terracotta)' }}
+                />
+                <span>Enable Anonymous Polling (Mask voter names as Anonymous Participant in host audit trail)</span>
+              </label>
+            </div>
+
             <h3>Poll Options (2 to 10)</h3>
             {options.map((opt, idx) => (
               <div key={idx} style={{ marginBottom: '12px', display: 'flex', gap: '10px' }}>
@@ -303,26 +312,33 @@ export default function App() {
         <div>
           <button onClick={() => setView('dashboard')} className="btn-secondary" style={{ marginBottom: '20px' }}>← Back to Dashboard</button>
           
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>{poll.question}</h2>
-              <span className={`status-badge status-${poll.status.toLowerCase()}`}>{poll.status}</span>
-            </div>
-            <p style={{ color: '#7FB3B8', fontFamily: 'monospace', fontSize: '16px' }}>ROOM CODE: <strong>{poll.code}</strong></p>
-
-            {/* Host Controls */}
-            {userProfile.role === 'host' && (
-              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
-                <h4 style={{ margin: '0 0 10px 0' }}>Host Actions</h4>
-                {poll.status === 'Draft' && <button onClick={() => handleToggleStatus('open')} className="btn-primary">Open Voting Session</button>}
-                {poll.status === 'Open' && <button onClick={() => handleToggleStatus('close')} className="btn-danger">Close Voting Session</button>}
-                {poll.status === 'Closed' && <span style={{ color: '#c6601f' }}>Session is closed for voting.</span>}
+          <div className="card" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ flex: '1 1 300px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2>{poll.question}</h2>
+                <span className={`status-badge status-${poll.status.toLowerCase()}`}>{poll.status}</span>
               </div>
-            )}
+              <p style={{ color: '#7FB3B8', fontFamily: 'monospace', fontSize: '16px' }}>ROOM CODE: <strong>{poll.code}</strong></p>
+
+              {userProfile.role === 'host' && (
+                <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                  <h4 style={{ margin: '0 0 10px 0' }}>Host Actions</h4>
+                  {poll.status === 'Draft' && <button onClick={() => handleToggleStatus('open')} className="btn-primary">Open Voting Session</button>}
+                  {poll.status === 'Open' && <button onClick={() => handleToggleStatus('close')} className="btn-danger">Close Voting Session</button>}
+                  {poll.status === 'Closed' && <span style={{ color: '#c6601f' }}>Session is closed for voting.</span>}
+                </div>
+              )}
+            </div>
+
+            {/* QR Code Section */}
+            <div style={{ background: '#0a0f14', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-teal-dark)', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: '#7FB3B8', marginBottom: '8px' }}>Scan to Join</p>
+              <QRCodeSVG value={`${window.location.origin}?code=${poll.code}`} size={110} bgColor="#0a0f14" fgColor="#EADCC8" />
+              <p style={{ fontSize: '11px', color: '#888', marginTop: '6px' }}>PIN: {poll.code}</p>
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: userProfile.role === 'host' ? '2fr 1fr' : '1fr', gap: '20px' }}>
-            {/* Options List */}
             <div className="card">
               <h3>Live Tally & Results</h3>
               {poll.options.map(opt => {
@@ -346,7 +362,6 @@ export default function App() {
               })}
             </div>
 
-            {/* Host Voter Roster Audit Trail */}
             {userProfile.role === 'host' && (
               <div className="card">
                 <h3>Voter Roster Audit Trail</h3>
@@ -366,6 +381,21 @@ export default function App() {
                 )}
               </div>
             )}
+            {userProfile.role === 'host' && (
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {poll.status === 'Draft' && <button onClick={() => handleToggleStatus('open')} className="btn-primary">Open Voting Session</button>}
+                {poll.status === 'Open' && <button onClick={() => handleToggleStatus('close')} className="btn-danger">Close Voting Session</button>}
+                
+                <button 
+                onClick={() => window.open(`${API_BASE}/api/polls/${poll.code}/export/csv`, '_blank')} 
+                className="btn-secondary" 
+                style={{ marginLeft: 'auto' }} >
+                   📥 Export CSV Results
+                   
+                </button>
+                
+                </div>
+              )}
           </div>
         </div>
       )}
