@@ -558,16 +558,13 @@ npm run build
 
 ## 📸 Application Screenshots
 
+### 🏠 Host Dashboard
 
-### Host Dashboard
+![LivePoll Host Dashboard](./docs/screenshots/HostDashboard.png)
 
-![Host Dashboard](docs/screenshots/HostDashboard.png)
+### 📝 Poll Creation
 
-### Poll Creation
-
-![Poll Creation](docs/screenshots/PollCreation.png)
-
-
+![LivePoll Poll Creation](./docs/screenshots/PollCreation.png)
 
 ## 🔮 Future Roadmap
 
