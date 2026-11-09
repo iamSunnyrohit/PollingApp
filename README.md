@@ -404,7 +404,7 @@ Install the following tools:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/PollingApp.git
+git clone https://github.com/iamSunnyrohit/PollingApp.git
 
 cd PollingApp
 ```
