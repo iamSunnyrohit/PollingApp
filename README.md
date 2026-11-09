@@ -558,29 +558,16 @@ npm run build
 
 ## 📸 Application Screenshots
 
-Add actual screenshots of your application in `docs/screenshots/`.
 
 ### Host Dashboard
 
-![Host Dashboard](docs/screenshots/dashboard.png)
+![Host Dashboard](docs/screenshots/HostDashboard.png)
 
 ### Poll Creation
 
-![Poll Creation](docs/screenshots/create-poll.png)
+![Poll Creation](docs/screenshots/PollCreation.png)
 
-### Participant Voting
 
-![Participant Voting](docs/screenshots/voting.png)
-
-### Live Analytics
-
-![Live Analytics](docs/screenshots/analytics.png)
-
-### QR Code Room Joining
-
-![QR Code Joining](docs/screenshots/qr-join.png)
-
----
 
 ## 🔮 Future Roadmap
 
