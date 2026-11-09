@@ -56,3 +56,57 @@ export async function getPollVotes(code: string) {
   if (!res.ok) throw new Error('Failed to fetch vote audit trail');
   return res.json();
 }
+
+export async function verifyEmail(email: string, token: string) {
+  const res = await fetch(`${API_BASE}/api/auth/verify-email?email=${encodeURIComponent(email)}&token=${token}`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Email verification failed');
+  return res.json();
+}
+
+export async function forgotPassword(email: string) {
+  const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error('Failed to send reset request');
+  return res.json();
+}
+
+export async function resetPassword(data: { email: string; token: string; newPassword: string }) {
+  const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Password reset failed');
+  return res.json();
+}
+
+export async function registerUser(data: { username: string; email: string; password: string; role: string }) {
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Registration failed');
+  }
+  return res.json();
+}
+
+export async function loginUser(data: { username: string; password: string }) {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Login failed');
+  }
+  return res.json();
+}

@@ -6,8 +6,11 @@ public record OptionResponseDto(Guid Id, string Text, int Position, int VoteCoun
 
 public record CastVoteDto(Guid OptionId, string VoterId, string VoterName);
 
-public record RegisterDto(string Username, string Password, string Role);
+public record RegisterDto(string Username, string Email, string Password, string Role);
 public record LoginDto(string Username, string Password);
+public record ForgotPasswordDto(string Email);
+public record ResetPasswordDto(string Email, string Token, string NewPassword);
+public record UpdateUserRoleDto(string NewRole);
 public record AuthResponseDto(string Token, string Username, string Role);
 
 public record PollResponseDto(

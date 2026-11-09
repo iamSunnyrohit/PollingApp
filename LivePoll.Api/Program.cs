@@ -9,6 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Security.Cryptography;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKey_ChangeThisInProduction_123456";
@@ -227,22 +229,27 @@ app.MapGet("/api/polls/{code}/votes", async (string code, AppDbContext db) =>
 
 app.MapPost("/api/auth/register", async (RegisterDto dto, AppDbContext db) =>
 {
-    if (await db.Users.AnyAsync(u => u.Username == dto.Username))
+    if (await db.Users.AnyAsync(u => u.Username == dto.Username || u.Email == dto.Email))
     {
-        return Results.BadRequest(new { error = "Username already exists." });
+        return Results.BadRequest(new { error = "Username or Email already exists." });
     }
+
+    var verificationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     var user = new User
     {
         Username = dto.Username,
+        Email = dto.Email,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-        Role = string.IsNullOrWhiteSpace(dto.Role) ? "Student" : dto.Role
+        Role = string.IsNullOrWhiteSpace(dto.Role) ? "Student" : dto.Role,
+        IsEmailVerified = false,
+        EmailVerificationToken = verificationToken
     };
 
     db.Users.Add(user);
     await db.SaveChangesAsync();
 
-    return Results.Ok(new { message = "User registered successfully." });
+    return Results.Ok(new { message = "Registration successful. Please verify your email.", verificationToken });
 });
 
 app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
@@ -273,6 +280,58 @@ app.MapPost("/api/auth/login", async (LoginDto dto, AppDbContext db) =>
     var tokenString = tokenHandler.WriteToken(token);
 
     return Results.Ok(new AuthResponseDto(tokenString, user.Username, user.Role));
+});
+
+app.MapPost("/api/auth/verify-email", async (string email, string token, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.EmailVerificationToken == token);
+    if (user is null) return Results.BadRequest(new { error = "Invalid verification token or email." });
+
+    user.IsEmailVerified = true;
+    user.EmailVerificationToken = null;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Email verified successfully!" });
+});
+
+app.MapPost("/api/auth/forgot-password", async (ForgotPasswordDto dto, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+    if (user is null) return Results.NotFound(new { error = "User with this email not found." });
+
+    var resetToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    user.ResetPasswordToken = resetToken;
+    user.ResetPasswordExpiry = DateTime.UtcNow.AddHours(1);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Password reset token generated.", resetToken });
+});
+
+app.MapPost("/api/auth/reset-password", async (ResetPasswordDto dto, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.ResetPasswordToken == dto.Token);
+    if (user is null || user.ResetPasswordExpiry < DateTime.UtcNow)
+    {
+        return Results.BadRequest(new { error = "Invalid or expired password reset token." });
+    }
+
+    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+    user.ResetPasswordToken = null;
+    user.ResetPasswordExpiry = null;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Password reset successfully." });
+});
+
+app.MapPut("/api/admin/users/{id}/role", async (Guid id, UpdateUserRoleDto dto, AppDbContext db) =>
+{
+    var user = await db.Users.FindAsync(id);
+    if (user is null) return Results.NotFound(new { error = "User not found." });
+
+    user.Role = dto.NewRole;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = $"User role updated to {dto.NewRole} successfully." });
 });
 
 app.MapGet("/api/polls/{code}/analytics", async (string code, AppDbContext db) =>
